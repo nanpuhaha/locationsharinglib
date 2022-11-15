@@ -234,16 +234,12 @@ class Service:
     def get_coordinates_by_nickname(self, nickname):
         """Retrieves a person's coordinates by nickname."""
         person = self.get_person_by_nickname(nickname)
-        if not person:
-            return '', ''
-        return person.latitude, person.longitude
+        return (person.latitude, person.longitude) if person else ('', '')
 
     def get_coordinates_by_full_name(self, name):
         """Retrieves a person's coordinates by full name."""
         person = self.get_person_by_full_name(name)
-        if not person:
-            return '', ''
-        return person.latitude, person.longitude
+        return (person.latitude, person.longitude) if person else ('', '')
 
 
 class Person:  # pylint: disable=too-many-instance-attributes
@@ -292,15 +288,18 @@ class Person:  # pylint: disable=too-many-instance-attributes
             raise InvalidData
 
     def __str__(self):
-        text = (u'Full name        :{}'.format(self.full_name),
-                u'Nickname         :{}'.format(self.nickname),
-                u'Current location :{}'.format(self.address),
-                u'Latitude         :{}'.format(self.latitude),
-                u'Longitude        :{}'.format(self.longitude),
-                u'Datetime         :{}'.format(self.datetime),
-                u'Charging         :{}'.format(self.charging),
-                u'Battery %        :{}'.format(self.battery_level),
-                u'Accuracy         :{}'.format(self._accuracy))
+        text = (
+            f'Full name        :{self.full_name}',
+            f'Nickname         :{self.nickname}',
+            f'Current location :{self.address}',
+            f'Latitude         :{self.latitude}',
+            f'Longitude        :{self.longitude}',
+            f'Datetime         :{self.datetime}',
+            f'Charging         :{self.charging}',
+            f'Battery %        :{self.battery_level}',
+            f'Accuracy         :{self._accuracy}',
+        )
+
         return '\n'.join(text)
 
     @property

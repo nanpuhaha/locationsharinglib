@@ -8,6 +8,7 @@
     Available under the terms of MIT license
 
 """
+
 from __future__ import print_function
 
 __author__ = "anatoly techtonik <techtonik@gmail.com>"
@@ -39,21 +40,14 @@ import sys
 PY3K = sys.version_info >= (3, 0)
 
 # PEP 3114
-if not PY3K:
-  compat_next = lambda gen: gen.next()
-else:
-  compat_next = lambda gen: gen.__next__()
+compat_next = ((lambda gen: gen.__next__()) if PY3K else
+               (lambda gen: gen.next()))
 
 def tostr(b):
   """ Python 3 bytes encoder. Used to print filename in
       diffstat output. Assumes that filenames are in utf-8.
   """
-  if not PY3K:
-    return b
-
-  # [ ] figure out how to print non-utf-8 filenames without
-  #     information loss
-  return b.decode('utf-8')
+  return b.decode('utf-8') if PY3K else b
 
 
 #------------------------------------------------
@@ -163,13 +157,10 @@ def fromfile(filename):
       PatchSet() object. Otherwise returns False.
   """
   patchset = PatchSet()
-  debug("reading %s" % filename)
-  fp = open(filename, "rb")
-  res = patchset.parse(fp)
-  fp.close()
-  if res == True:
-    return patchset
-  return False
+  debug(f"reading {filename}")
+  with open(filename, "rb") as fp:
+    res = patchset.parse(fp)
+  return patchset if res == True else False
 
 
 def fromstring(s):
@@ -177,9 +168,7 @@ def fromstring(s):
       object (or False if parsing fails)
   """
   ps = PatchSet( StringIO(s) )
-  if ps.errors == 0:
-    return ps
-  return False
+  return ps if ps.errors == 0 else False
 
 
 def fromurl(url):
@@ -188,9 +177,7 @@ def fromurl(url):
       can throw urlopen() exceptions.
   """
   ps = PatchSet( urllib_request.urlopen(url) )
-  if ps.errors == 0:
-    return ps
-  return False
+  return ps if ps.errors == 0 else False
 
 
 # --- Utility functions ---
@@ -199,7 +186,7 @@ def pathstrip(path, n):
   """ Strip n leading components from the given path """
   pathlist = [path]
   while os.path.dirname(pathlist[0]) != b'':
-    pathlist[0:1] = os.path.split(pathlist[0])
+    pathlist[:1] = os.path.split(pathlist[0])
   return b'/'.join(pathlist[n:])
 # --- /Utility function ---
 
@@ -241,8 +228,7 @@ class Patch(object):
     self.type = None
 
   def __iter__(self):
-    for h in self.hunks:
-      yield h
+    yield from self.hunks
 
 
 class PatchSet(object):
@@ -272,8 +258,7 @@ class PatchSet(object):
     return len(self.items)
 
   def __iter__(self):
-    for i in self.items:
-      yield i
+    yield from self.items
 
   def parse(self, stream):
     """ parse unified diff

@@ -65,9 +65,9 @@ class Package:
 
     @staticmethod
     def _decompose_full_version(full_version: str) -> (str, str):
-        comparator = ""
-        version = "*"
         if full_version == "*":
+            comparator = ""
+            version = "*"
             return comparator, version
         # We need to check for the most common pinning cases
         # >, <, <=, >=, ~=, ==
@@ -81,9 +81,7 @@ class Package:
                 break
         else:
             raise ValueError(f"Could not find where the comparator pin ends in {full_version}")
-        version = full_version[len(operator):]
-
-        return operator, version
+        return operator, full_version[len(operator):]
 
     @property
     def full_version(self):
@@ -125,9 +123,8 @@ def activate_template():
                 if logging_level == 'DEBUG':
                     print(f'Loading PIPENV related variable {name} : {value}')
                 os.environ[name] = value
-            else:
-                if logging_level == 'DEBUG':
-                    print(f'Variable {name} already loaded, not overwriting...')
+            elif logging_level == 'DEBUG':
+                print(f'Variable {name} already loaded, not overwriting...')
 
     # After this everything is executed inside a virtual environment
     if not is_venv_active():
@@ -148,7 +145,7 @@ def is_venv_created():
     warnings.simplefilter("ignore", ResourceWarning)
     dev_null = open(os.devnull, 'w')
     venv = Popen(['pipenv', '--venv'], stdout=PIPE, stderr=dev_null).stdout.read().strip()
-    return True if venv else False
+    return bool(venv)
 
 
 def is_venv_active():
@@ -161,12 +158,15 @@ def get_project_root_path():
 
 
 def get_venv_parent_path():
-    alternate_pipefile_location = os.environ.get('PIPENV_PIPFILE', None)
-    if alternate_pipefile_location:
-        venv_parent = os.path.abspath(os.path.dirname(alternate_pipefile_location))
-    else:
-        venv_parent = os.path.abspath('.')
-    return venv_parent
+    return (
+        os.path.abspath(os.path.dirname(alternate_pipefile_location))
+        if (
+            alternate_pipefile_location := os.environ.get(
+                'PIPENV_PIPFILE', None
+            )
+        )
+        else os.path.abspath('.')
+    )
 
 
 def activate_virtual_environment():
@@ -212,19 +212,20 @@ def load_environment_variables(environment_variables):
 
 
 def load_dot_env_file():
-    if os.path.isfile('.env'):
-        LOGGER.info('Loading environment variables from .env file')
-        variables = {}
-        for line in open('.env', 'r').read().splitlines():
-            if line.strip().startswith('export '):
-                line = line.replace('export ', '')
-            try:
-                key, value = line.strip().split('=', 1)
-            except ValueError:
-                LOGGER.error('Invalid .env file entry, please check line %s', line)
-                raise SystemExit(1)
-            variables[key.strip()] = value.strip()
-        load_environment_variables(variables)
+    if not os.path.isfile('.env'):
+        return
+    LOGGER.info('Loading environment variables from .env file')
+    variables = {}
+    for line in open('.env', 'r').read().splitlines():
+        if line.strip().startswith('export '):
+            line = line.replace('export ', '')
+        try:
+            key, value = line.strip().split('=', 1)
+        except ValueError:
+            LOGGER.error('Invalid .env file entry, please check line %s', line)
+            raise SystemExit(1)
+        variables[key.strip()] = value.strip()
+    load_environment_variables(variables)
 
 
 def get_binary_path(executable, logging_level='INFO'):
@@ -232,7 +233,7 @@ def get_binary_path(executable, logging_level='INFO'):
     if sys.platform == 'win32':
         if executable == 'start':
             return executable
-        executable = executable + '.exe'
+        executable = f'{executable}.exe'
         if executable in os.listdir('.'):
             binary = os.path.join(os.getcwd(), executable)
         else:
@@ -242,12 +243,12 @@ def get_binary_path(executable, logging_level='INFO'):
     else:
         venv_parent = get_venv_parent_path()
         venv_bin_path = os.path.join(venv_parent, '.venv', 'bin')
-        if not venv_bin_path in os.environ.get('PATH'):
+        if venv_bin_path not in os.environ.get('PATH'):
             if logging_level == 'DEBUG':
                 print(f'Adding path {venv_bin_path} to environment PATH variable')
             os.environ['PATH'] = os.pathsep.join([os.environ['PATH'], venv_bin_path])
         binary = shutil.which(executable)
-    return binary if binary else None
+    return binary or None
 
 
 def validate_binary_prerequisites(software_list):
@@ -300,7 +301,7 @@ def execute_command(command, filter_method=None):
             command_output = Popen(command,stdout=PIPE)
             while command_output.poll() is None:
                 filter_method(command_output.stdout.readline().rstrip().decode('utf-8'))
-            success = True if command_output.returncode == 0 else False
+            success = command_output.returncode == 0
         except CalledProcessError as command_output:
             LOGGER.error('Error running command %s', command)
             filter_method(command_output.stderr.decode('utf-8'))
@@ -315,7 +316,7 @@ def execute_command(command, filter_method=None):
             LOGGER.debug('Command Output is not being filtered')
             process = Popen(command, bufsize=1)
         process.communicate()
-        return True if not process.returncode else False
+        return not process.returncode
 
 
 def execute_command_with_returned_output(command, filter_method=None):
@@ -335,7 +336,7 @@ def execute_command_with_returned_output(command, filter_method=None):
         except CalledProcessError as command_execution:
             LOGGER.error('Error running command %s', command)
             stderr = filter_method(command_execution.stderr.decode('utf-8'))
-        success = True if not command_execution.returncode else False
+        success = not command_execution.returncode
     else:
         if sys.platform == 'win32':
             process = Popen(command, stdout=PIPE, stderr=PIPE, shell=True, bufsize=1)
@@ -345,7 +346,7 @@ def execute_command_with_returned_output(command, filter_method=None):
             LOGGER.debug('Command Output is not being filtered')
             process = Popen(command, stdout=PIPE, stderr=PIPE, bufsize=1)
         stdout, stderr = process.communicate()
-        success = True if not process.returncode else False
+        success = not process.returncode
     return success, stdout.decode('utf-8'), stderr.decode('utf-8')
 
 
@@ -497,16 +498,15 @@ def bump(segment=None, version_file=None):
     except ValueError:
         LOGGER.error('Invalid version found in .VERSION file "%s"', version_text)
         raise SystemExit(1)
-    if segment:
-        if segment not in ('major', 'minor', 'patch'):
-            LOGGER.error('Invalid segment "%s" was provided for semantic versioning, exiting...')
-            raise SystemExit(1)
-        new_version = getattr(semver, f'bump_{segment}')(version_text)
-        with open(version_file, 'w') as vfile:
-            vfile.write(new_version)
-            return new_version
-    else:
+    if not segment:
         return version_text
+    if segment not in ('major', 'minor', 'patch'):
+        LOGGER.error('Invalid segment "%s" was provided for semantic versioning, exiting...')
+        raise SystemExit(1)
+    new_version = getattr(semver, f'bump_{segment}')(version_text)
+    with open(version_file, 'w') as vfile:
+        vfile.write(new_version)
+        return new_version
 
 
 @contextmanager
@@ -578,7 +578,7 @@ def update_pipfile(stdout: bool):
                                                                        config.get('all_packages'))}
 
     if stdout:
-        LOGGER.debug(f"Outputting Pipfile on stdout")
+        LOGGER.debug("Outputting Pipfile on stdout")
         print(toml.dumps(pipfile))
     else:
         LOGGER.debug(f"Outputting Pipfile top {project.pipfile_location}")

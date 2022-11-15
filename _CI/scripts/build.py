@@ -68,7 +68,7 @@ def build():
                      emojize(':crying_face:'))
     clean_up([os.path.join(f'{PROJECT_SLUG}', file)
               for file in BUILD_REQUIRED_FILES])
-    return True if success else False
+    return bool(success)
 
 
 if __name__ == '__main__':

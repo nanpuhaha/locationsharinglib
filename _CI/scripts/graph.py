@@ -43,11 +43,8 @@ LOGGER.addHandler(logging.NullHandler())
 def graph():
     bootstrap()
     os.chdir('graphs')
-    create_graph_command = ('pyreverse '
-                            '-o png '
-                            '-A '
-                            '-f PUB_ONLY '
-                            '-p graphs {}').format(os.path.join('..', f'{PROJECT_SLUG}'))
+    create_graph_command = f"pyreverse -o png -A -f PUB_ONLY -p graphs {os.path.join('..', f'{PROJECT_SLUG}')}"
+
     success = execute_command(create_graph_command)
     if success:
         LOGGER.info('%s Successfully created graph images %s',

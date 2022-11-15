@@ -44,8 +44,7 @@ def get_arguments():
                         help='Output the Pipfile to stdout',
                         action="store_true",
                         default=False)
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def execute():
